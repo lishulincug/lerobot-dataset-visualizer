@@ -1,6 +1,10 @@
 /**
  * Utility functions for checking dataset version compatibility
  */
+// 开发环境下跳过 SSL 证书验证（用于自定义 HTTPS 服务器）
+if (process.env.NODE_ENV === 'development' && process.env.DATASET_URL) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 const DATASET_URL = process.env.DATASET_URL || "https://huggingface.co/datasets";
 
@@ -28,11 +32,16 @@ interface DatasetInfo {
  */
 export async function getDatasetInfo(repoId: string): Promise<DatasetInfo> {
   try {
-    const testUrl = `${DATASET_URL}/${repoId}/resolve/main/meta/info.json`;
+    // 自定义 DATASET_URL 使用简化路径，HuggingFace 需要 resolve/main
+    const isCustomUrl = !!process.env.DATASET_URL;
+    const testUrl = isCustomUrl 
+      ? `${DATASET_URL}/${repoId}/meta/info.json`
+      : `${DATASET_URL}/${repoId}/resolve/main/meta/info.json`;
     
+    console.log(`[getDatasetInfo] Fetching: ${testUrl}`);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
+
     const response = await fetch(testUrl, { 
       method: "GET",
       cache: "no-store",
@@ -42,7 +51,7 @@ export async function getDatasetInfo(repoId: string): Promise<DatasetInfo> {
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch dataset info: ${response.status}`);
+      throw new Error(`Failed to fetch dataset info from ${testUrl}: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -101,6 +110,10 @@ export async function getDatasetVersion(repoId: string): Promise<string> {
 }
 
 export function buildVersionedUrl(repoId: string, version: string, path: string): string {
+  const isCustomUrl = !!process.env.DATASET_URL;
+  if (isCustomUrl) {
+    return `${DATASET_URL}/${repoId}/${path}`;    
+  }
   return `${DATASET_URL}/${repoId}/resolve/main/${path}`;
 }
 

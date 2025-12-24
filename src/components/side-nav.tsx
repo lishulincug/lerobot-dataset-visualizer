@@ -35,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         sidebarRef.current &&
         !sidebarRef.current.contains(event.target as Node)
       ) {
-        setTimeout(() => setSidebarVisible(false), 500);
+        // setTimeout(() => setSidebarVisible(false), 500);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
