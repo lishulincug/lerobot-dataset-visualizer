@@ -29,6 +29,10 @@ export const SimpleVideosPlayer = ({
   const [showHiddenMenu, setShowHiddenMenu] = React.useState(false);
   const [videosReady, setVideosReady] = React.useState(false);
   
+  // 防止时间同步循环的标记
+  const isSyncingRef = useRef(false);
+  const lastTimeUpdateRef = useRef(0);
+  
   const firstVisibleIdx = videosInfo.findIndex(
     (video) => !hiddenVideos.includes(video.filename)
   );
@@ -38,102 +42,164 @@ export const SimpleVideosPlayer = ({
     videoRefs.current = videoRefs.current.slice(0, videosInfo.length);
   }, [videosInfo.length]);
 
-  // Handle videos ready
+  // 使用 ref 追踪就绪状态和回调
+  const readySetRef = useRef<Set<number>>(new Set());
+  const hasCalledReadyRef = useRef(false);
+  const onVideosReadyRef = useRef(onVideosReady);
+  onVideosReadyRef.current = onVideosReady;
+  
+  // Handle videos ready - 只在 videosInfo 变化时重新设置
   useEffect(() => {
-    let readyCount = 0;
+    // 只在首次加载时重置
+    if (videosReady) return;
     
-    const checkReady = () => {
-      readyCount++;
-      if (readyCount === videosInfo.length && onVideosReady) {
-        setVideosReady(true);
-        onVideosReady();
-        setIsPlaying(true);
+    readySetRef.current.clear();
+    hasCalledReadyRef.current = false;
+    
+    const triggerReady = () => {
+      if (hasCalledReadyRef.current) return;
+      hasCalledReadyRef.current = true;
+      setVideosReady(true);
+      if (onVideosReadyRef.current) {
+        onVideosReadyRef.current();
+      }
+      setIsPlaying(true);
+    };
+    
+    const checkReady = (videoIndex: number) => {
+      if (hasCalledReadyRef.current) return;
+      
+      readySetRef.current.add(videoIndex);
+      
+      if (readySetRef.current.size >= videosInfo.length) {
+        triggerReady();
       }
     };
 
-    videoRefs.current.forEach((video, index) => {
-      if (video) {
+    // 延迟执行，确保 video refs 已填充
+    const setupTimer = setTimeout(() => {
+      videoRefs.current.forEach((video, index) => {
+        if (!video) return;
+        
         const info = videosInfo[index];
         
-        // Setup segment boundaries
-        if (info.isSegmented) {
-          const handleTimeUpdate = () => {
-            const segmentEnd = info.segmentEnd || video.duration;
-            const segmentStart = info.segmentStart || 0;
-            
-            if (video.currentTime >= segmentEnd - 0.05) {
-              video.currentTime = segmentStart;
-              // Also update the global time to reset to start
-              if (index === firstVisibleIdx) {
-                setCurrentTime(0);
-              }
-            }
-          };
-          
-          const handleLoadedData = () => {
+        // 如果视频已经准备好了，直接标记
+        if (video.readyState >= 3) {
+          if (info.isSegmented) {
             video.currentTime = info.segmentStart || 0;
-            checkReady();
-          };
-          
-          video.addEventListener('timeupdate', handleTimeUpdate);
-          video.addEventListener('loadeddata', handleLoadedData);
-          
-          // Store cleanup
-          (video as any)._segmentHandlers = () => {
-            video.removeEventListener('timeupdate', handleTimeUpdate);
-            video.removeEventListener('loadeddata', handleLoadedData);
-          };
-        } else {
-          // For non-segmented videos, handle end of video
-          const handleEnded = () => {
-            video.currentTime = 0;
-            if (index === firstVisibleIdx) {
-              setCurrentTime(0);
-            }
-          };
-          
-          video.addEventListener('ended', handleEnded);
-          video.addEventListener('canplaythrough', checkReady, { once: true });
-          
-          // Store cleanup
-          (video as any)._segmentHandlers = () => {
-            video.removeEventListener('ended', handleEnded);
-          };
+          }
+          checkReady(index);
+          return;
         }
+        
+        // 创建就绪处理函数（防止重复调用）
+        let hasMarkedReady = false;
+        const markReady = () => {
+          if (!hasMarkedReady) {
+            hasMarkedReady = true;
+            if (info.isSegmented) {
+              video.currentTime = info.segmentStart || 0;
+            }
+            checkReady(index);
+          }
+        };
+        
+        video.addEventListener('loadeddata', markReady);
+        video.addEventListener('canplaythrough', markReady);
+        
+        (video as any)._readyHandler = markReady;
+      });
+    }, 50);
+    
+    // 备用超时机制：5秒后如果还没全部就绪，强制就绪
+    const fallbackTimer = setTimeout(() => {
+      if (!hasCalledReadyRef.current && readySetRef.current.size > 0) {
+        console.warn('[SimpleVideosPlayer] Fallback: forcing ready state');
+        triggerReady();
       }
-    });
+    }, 5000);
 
     return () => {
-      videoRefs.current.forEach((video) => {
-        if (video && (video as any)._segmentHandlers) {
-          (video as any)._segmentHandlers();
-        }
-      });
+      clearTimeout(setupTimer);
+      clearTimeout(fallbackTimer);
     };
-  }, [videosInfo, onVideosReady, setIsPlaying, firstVisibleIdx, setCurrentTime]);
-
-  // Handle play/pause
+  }, [videosInfo.length, setIsPlaying]); // 只依赖视频数量变化
+  
+  // 单独处理分段视频的边界检测和结束事件
   useEffect(() => {
     if (!videosReady) return;
     
-    videoRefs.current.forEach((video, idx) => {
-      if (video && !hiddenVideos.includes(videosInfo[idx].filename)) {
-        if (isPlaying) {
-          video.play().catch(e => {
-            if (e.name !== 'AbortError') {
-              console.error("Error playing video");
+    const cleanups: (() => void)[] = [];
+    
+    videoRefs.current.forEach((video, index) => {
+      if (!video) return;
+      
+      const info = videosInfo[index];
+      
+      if (info.isSegmented) {
+        const handleTimeUpdate = () => {
+          const segmentEnd = info.segmentEnd || video.duration;
+          const segmentStart = info.segmentStart || 0;
+          
+          if (video.currentTime >= segmentEnd - 0.05) {
+            video.currentTime = segmentStart;
+            if (index === firstVisibleIdx) {
+              setCurrentTime(0);
             }
-          });
+          }
+        };
+        
+        video.addEventListener('timeupdate', handleTimeUpdate);
+        cleanups.push(() => video.removeEventListener('timeupdate', handleTimeUpdate));
+      } else {
+        const handleEnded = () => {
+          video.currentTime = 0;
+          if (index === firstVisibleIdx) {
+            setCurrentTime(0);
+          }
+        };
+        
+        video.addEventListener('ended', handleEnded);
+        cleanups.push(() => video.removeEventListener('ended', handleEnded));
+      }
+    });
+    
+    return () => {
+      cleanups.forEach(cleanup => cleanup());
+    };
+  }, [videosReady, videosInfo, firstVisibleIdx, setCurrentTime]);
+
+  // Handle play/pause - 暂停操作立即执行，不需要等待 videosReady
+  useEffect(() => {
+    videoRefs.current.forEach((video, idx) => {
+      if (video && !hiddenVideos.includes(videosInfo[idx]?.filename)) {
+        if (isPlaying) {
+          // 播放需要等待视频就绪
+          if (videosReady) {
+            video.play().catch(e => {
+              if (e.name !== 'AbortError') {
+                console.error("Error playing video");
+              }
+            });
+          }
         } else {
+          // 暂停立即执行
           video.pause();
         }
       }
     });
   }, [isPlaying, videosReady, hiddenVideos, videosInfo]);
 
-  // Sync video times
+  // 追踪上一次的 currentTime，用于检测外部跳转
+  const prevCurrentTimeRef = useRef(currentTime);
+  
+  // Sync video times - 当外部设置时间时同步所有视频
   useEffect(() => {
     if (!videosReady) return;
+    
+    // 检测是否是大幅跳转（外部设置，如重置按钮）
+    const isExternalJump = Math.abs(currentTime - prevCurrentTimeRef.current) > 1;
+    prevCurrentTimeRef.current = currentTime;
     
     videoRefs.current.forEach((video, index) => {
       if (video && !hiddenVideos.includes(videosInfo[index].filename)) {
@@ -144,15 +210,28 @@ export const SimpleVideosPlayer = ({
           targetTime = (info.segmentStart || 0) + currentTime;
         }
         
-        if (Math.abs(video.currentTime - targetTime) > 0.2) {
+        // 主控视频：只在大幅跳转时同步
+        // 非主控视频：在差异较大时同步
+        const isMainVideo = index === firstVisibleIdx;
+        const threshold = isMainVideo ? 1 : 0.5;
+        
+        if (Math.abs(video.currentTime - targetTime) > threshold || (isExternalJump && isMainVideo)) {
           video.currentTime = targetTime;
         }
       }
     });
-  }, [currentTime, videosInfo, videosReady, hiddenVideos]);
+  }, [currentTime, videosInfo, videosReady, hiddenVideos, firstVisibleIdx]);
 
-  // Handle time update from first visible video
+  // Handle time update from first visible video - 添加节流
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    // 如果正在同步，跳过
+    if (isSyncingRef.current) return;
+    
+    // 节流：至少间隔 100ms
+    const now = Date.now();
+    if (now - lastTimeUpdateRef.current < 100) return;
+    lastTimeUpdateRef.current = now;
+    
     const video = e.target as HTMLVideoElement;
     const videoIndex = videoRefs.current.findIndex(ref => ref === video);
     const info = videosInfo[videoIndex];
@@ -162,7 +241,15 @@ export const SimpleVideosPlayer = ({
       if (info.isSegmented) {
         globalTime = video.currentTime - (info.segmentStart || 0);
       }
+      
+      // 标记正在同步
+      isSyncingRef.current = true;
       setCurrentTime(globalTime);
+      
+      // 下一帧解除标记
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
     }
   };
 
@@ -247,7 +334,7 @@ export const SimpleVideosPlayer = ({
                 </span>
               </p>
               <video
-                ref={el => videoRefs.current[idx] = el}
+                ref={el => { videoRefs.current[idx] = el; }}
                 className={`w-full object-contain ${
                   isEnlarged ? "max-h-[90vh] max-w-[90vw]" : ""
                 }`}

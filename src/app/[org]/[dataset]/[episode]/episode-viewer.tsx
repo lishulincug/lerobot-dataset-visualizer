@@ -189,21 +189,21 @@ function EpisodeViewerInner({ data, org, dataset }: { data: any; org?: string; d
 
       {/* Content */}
       <div
-        className={`flex max-h-screen flex-col gap-4 p-4 md:flex-1 relative ${isLoading ? "overflow-hidden" : "overflow-y-auto"}`}
+        className={`flex max-h-screen flex-col gap-2 p-1 md:flex-1 relative ${isLoading ? "overflow-hidden" : "overflow-y-auto"}`}
       >
         {isLoading && <Loading />}
 
-        <div className="flex items-center justify-start my-4">
+        <div className="flex items-center justify-start my-2">
           <a
             href="https://github.com/huggingface/lerobot"
             target="_blank"
             className="block"
           >
-            <img
+            {/* <img
               src="https://github.com/huggingface/lerobot/raw/main/media/lerobot-logo-thumbnail.png"
               alt="LeRobot Logo"
               className="w-32"
-            />
+            /> */}
           </a>
 
           <div>
@@ -230,7 +230,7 @@ function EpisodeViewerInner({ data, org, dataset }: { data: any; org?: string; d
 
         {/* Language Instruction */}
         {task && (
-          <div className="mb-6 p-4 bg-slate-800 rounded-lg border border-slate-600">
+          <div className="mb-1 p-1 bg-slate-800 rounded-lg border border-slate-600">
             <p className="text-slate-300">
               <span className="font-semibold text-slate-100">Language Instruction:</span>
             </p>

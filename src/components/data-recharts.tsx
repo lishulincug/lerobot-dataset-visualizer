@@ -36,7 +36,7 @@ export const DataRecharts = React.memo(
     }, [onChartsReady]);
 
     return (
-      <div className="grid md:grid-cols-2 grid-cols-1 gap-4">
+      <div className="grid md:grid-cols-2 grid-cols-1 gap-2">
         {data.map((group, idx) => (
           <SingleDataGraph
             key={idx}
@@ -187,7 +187,7 @@ const SingleDataGraph = React.memo(
       };
 
       return (
-        <div className="grid grid-cols-[repeat(auto-fit,250px)] gap-4 mx-8">
+        <div className="grid grid-cols-[repeat(auto-fit,250px)] gap-1 mx-8">
           {/* Grouped keys */}
           {Object.entries(groups).map(([group, children]) => {
             const color = groupColorMap[group];
@@ -249,7 +249,7 @@ const SingleDataGraph = React.memo(
 
     return (
       <div className="w-full">
-        <div className="w-full h-80" onMouseLeave={handleMouseLeave}>
+        <div className="w-full h-60" onMouseLeave={handleMouseLeave}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
