@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  # 主前端服务 (nginx +  静态文件)
+  # lerobot-dataset-visualizer 服务 (Node.js) - 独立运行在端口 3005
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lerobot-viewer
+    container_name: lerobot-viewer
+    ports:
+      - "3005:3005"
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

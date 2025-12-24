@@ -7,7 +7,15 @@
     "build": "next build",
     "start": "next start -p 3005",
     "lint": "next lint",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "outputs": ["{projectRoot}/.next"]
+      }
+    }
   },
   "dependencies": {
     "hyparquet": "^1.12.1",
