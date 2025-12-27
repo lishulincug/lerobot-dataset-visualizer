@@ -1,0 +1,31 @@
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '22'  # 使用更新的 Node.js 版本
+      - name: 安装 Pnpm 🧬
+        uses: pnpm/action-setup@v3
+        id: pnpm-install
+        with:
+          version: 7
+          run_install: true
+      - run: pnpm install
+      # - run: pnpm run build
+      - run: |
+          pnpm run build
+          touch out/.nojekyll
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: out  # 确认这是你的构建输出目录
+          # clean: true
