@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
+import { useSearchParams } from "next/navigation";
 
 interface SidebarProps {
   datasetInfo: any;
@@ -22,6 +23,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   prevPage,
   nextPage,
 }) => {
+  const searchParams = useSearchParams();
+  // 获取 dataset_url 参数以在链接中保留
+  const datasetUrl = searchParams.get("dataset_url");
+  const queryString = datasetUrl ? `?dataset_url=${encodeURIComponent(datasetUrl)}` : '';
   const [sidebarVisible, setSidebarVisible] = React.useState(true);
   const toggleSidebar = () => setSidebarVisible((prev) => !prev);
 
@@ -66,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {paginatedEpisodes.map((episode) => (
               <li key={episode} className="mt-0.5 font-mono text-sm">
                 <Link
-                  href={`./episode_${episode}`}
+                  href={`./episode_${episode}${queryString}`}
                   className={`underline ${episode === episodeId ? "-ml-1 font-bold" : ""}`}
                 >
                   Episode {episode}

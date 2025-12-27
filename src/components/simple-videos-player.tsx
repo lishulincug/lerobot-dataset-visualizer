@@ -310,7 +310,7 @@ export const SimpleVideosPlayer = ({
               className={`${
                 isEnlarged
                   ? "z-40 fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center"
-                  : "max-w-96"
+                  : "max-w-90"
               }`}
             >
               <p className="truncate w-full rounded-t-xl bg-gray-800 px-2 text-sm text-gray-300 flex items-center justify-between">

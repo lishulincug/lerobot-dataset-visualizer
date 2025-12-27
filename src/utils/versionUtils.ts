@@ -1,12 +1,69 @@
 /**
  * Utility functions for checking dataset version compatibility
  */
-// 开发环境下跳过 SSL 证书验证（用于自定义 HTTPS 服务器）
-if (process.env.NODE_ENV === 'development' && process.env.DATASET_URL) {
+// 自定义DATASET_URL需要跳过 SSL 证书验证（用于自定义 HTTPS 服务器）
+if (process.env.DATASET_URL) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
-const DATASET_URL = process.env.DATASET_URL || "https://huggingface.co/datasets";
+const DEFAULT_DATASET_URL = "https://huggingface.co/datasets";
+
+// 当前请求的 datasetUrl（用于服务端渲染时传递）
+let currentDatasetUrl: string | undefined = undefined;
+
+/**
+ * 设置当前请求的 dataset_url
+ * 在页面组件的最顶层调用，用于设置当前请求的数据集地址
+ */
+export function setCurrentDatasetUrl(url: string | undefined | null): void {
+  currentDatasetUrl = url || undefined;
+  if (url) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
+}
+
+/**
+ * 清除当前请求的 dataset_url
+ */
+export function clearCurrentDatasetUrl(): void {
+  currentDatasetUrl = undefined;
+}
+
+/**
+ * 获取 DATASET_URL，优先级：
+ * 1. 当前请求设置的 dataset_url（通过 setCurrentDatasetUrl 设置）
+ * 2. 环境变量 process.env.DATASET_URL
+ * 3. 默认值 "https://huggingface.co/datasets"
+ */
+export function getDatasetUrl(): string {
+  return currentDatasetUrl || process.env.DATASET_URL || DEFAULT_DATASET_URL;
+}
+
+/**
+ * 判断是否为自定义 URL（非 HuggingFace 默认地址）
+ */
+export function isCustomDatasetUrl(): boolean {
+  const url = getDatasetUrl();
+  return url !== DEFAULT_DATASET_URL;
+}
+
+/**
+ * 在指定的 datasetUrl 上下文中执行异步函数
+ * @param datasetUrl - 自定义数据集地址
+ * @param fn - 要执行的异步函数
+ */
+export async function withDatasetUrl<T>(
+  datasetUrl: string | undefined | null,
+  fn: () => Promise<T>
+): Promise<T> {
+  const previousUrl = currentDatasetUrl;
+  try {
+    setCurrentDatasetUrl(datasetUrl);
+    return await fn();
+  } finally {
+    currentDatasetUrl = previousUrl;
+  }
+}
 
 /**
  * Dataset information structure from info.json
@@ -29,14 +86,17 @@ interface DatasetInfo {
 
 /**
  * Fetches dataset information from the main revision
+ * @param repoId - 数据集仓库 ID
  */
 export async function getDatasetInfo(repoId: string): Promise<DatasetInfo> {
   try {
+    const baseUrl = getDatasetUrl();
+    const isCustom = isCustomDatasetUrl();
+    
     // 自定义 DATASET_URL 使用简化路径，HuggingFace 需要 resolve/main
-    const isCustomUrl = !!process.env.DATASET_URL;
-    const testUrl = isCustomUrl 
-      ? `${DATASET_URL}/${repoId}/meta/info.json`
-      : `${DATASET_URL}/${repoId}/resolve/main/meta/info.json`;
+    const testUrl = isCustom 
+      ? `${baseUrl}/${repoId}/meta/info.json`
+      : `${baseUrl}/${repoId}/resolve/main/meta/info.json`;
     
     console.log(`[getDatasetInfo] Fetching: ${testUrl}`);
     const controller = new AbortController();
@@ -76,6 +136,7 @@ export async function getDatasetInfo(repoId: string): Promise<DatasetInfo> {
 
 /**
  * Gets the dataset version by reading the codebase_version from the main revision's info.json
+ * @param repoId - 数据集仓库 ID
  */
 export async function getDatasetVersion(repoId: string): Promise<string> {
   try {
@@ -109,11 +170,18 @@ export async function getDatasetVersion(repoId: string): Promise<string> {
   }
 }
 
+/**
+ * 构建版本化的 URL
+ * @param repoId - 数据集仓库 ID
+ * @param version - 数据集版本
+ * @param path - 资源路径
+ */
 export function buildVersionedUrl(repoId: string, version: string, path: string): string {
-  const isCustomUrl = !!process.env.DATASET_URL;
-  if (isCustomUrl) {
-    return `${DATASET_URL}/${repoId}/${path}`;    
+  const baseUrl = getDatasetUrl();
+  const isCustom = isCustomDatasetUrl();
+  
+  if (isCustom) {
+    return `${baseUrl}/${repoId}/${path}`;    
   }
-  return `${DATASET_URL}/${repoId}/resolve/main/${path}`;
+  return `${baseUrl}/${repoId}/resolve/main/${path}`;
 }
-

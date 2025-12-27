@@ -156,7 +156,10 @@ function EpisodeViewerInner({ data, org, dataset }: { data: any; org?: string; d
         nextEpisodeId >= lowestEpisodeId &&
         nextEpisodeId <= highestEpisodeId
       ) {
-        router.push(`./episode_${nextEpisodeId}`);
+        // 保留 dataset_url 查询参数
+        const datasetUrl = searchParams.get("dataset_url");
+        const queryString = datasetUrl ? `?dataset_url=${encodeURIComponent(datasetUrl)}` : '';
+        router.push(`./episode_${nextEpisodeId}${queryString}`);
       }
     }
   };
@@ -199,11 +202,11 @@ function EpisodeViewerInner({ data, org, dataset }: { data: any; org?: string; d
             target="_blank"
             className="block"
           >
-            {/* <img
+            <img
               src="https://github.com/huggingface/lerobot/raw/main/media/lerobot-logo-thumbnail.png"
               alt="LeRobot Logo"
               className="w-32"
-            /> */}
+            />
           </a>
 
           <div>
@@ -211,12 +214,12 @@ function EpisodeViewerInner({ data, org, dataset }: { data: any; org?: string; d
               href={`https://huggingface.co/datasets/${datasetInfo.repoId}`}
               target="_blank"
             >
-              <p className="text-lg font-semibold">{datasetInfo.repoId}</p>
+              <p className="text-lg font-semibold">{datasetInfo.repoId}  / episode {episodeId}</p>
             </a>
 
-            <p className="font-mono text-lg font-semibold">
+            {/* <p className="font-mono text-lg font-semibold">
               episode {episodeId}
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -232,15 +235,21 @@ function EpisodeViewerInner({ data, org, dataset }: { data: any; org?: string; d
         {task && (
           <div className="mb-1 p-1 bg-slate-800 rounded-lg border border-slate-600">
             <p className="text-slate-300">
-              <span className="font-semibold text-slate-100">Language Instruction:</span>
+              <span className="font-semibold text-slate-100">Language Instruction : 
+              {task.split('\n').map((instruction, index) => (
+                <label key={index} className="mb-1">
+                  {instruction}
+                </label>
+              ))}
+              </span>
             </p>
-            <div className="mt-2 text-slate-300">
+            {/* <div className="mt-2 text-slate-300">
               {task.split('\n').map((instruction, index) => (
                 <p key={index} className="mb-1">
                   {instruction}
                 </p>
               ))}
-            </div>
+            </div> */}
           </div>
         )}
 

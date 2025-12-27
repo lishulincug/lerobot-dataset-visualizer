@@ -115,7 +115,7 @@ const SingleDataGraph = React.memo(
     const allGroups = [...Object.keys(groups), ...singles];
     const groupColorMap: Record<string, string> = {};
     allGroups.forEach((group, idx) => {
-      groupColorMap[group] = `hsl(${idx * (360 / allGroups.length)}, 100%, 50%)`;
+      groupColorMap[group] = `hsl(${idx * (360 / allGroups.length)}, 70%, 50%)`;
     });
 
     // Find the closest data point to the current time for highlighting
@@ -164,7 +164,7 @@ const SingleDataGraph = React.memo(
       const allGroups = [...Object.keys(groups), ...singles];
       const groupColorMap: Record<string, string> = {};
       allGroups.forEach((group, idx) => {
-        groupColorMap[group] = `hsl(${idx * (360 / allGroups.length)}, 100%, 50%)`;
+        groupColorMap[group] = `hsl(${idx * (360 / allGroups.length)}, 70%, 50%)`;
       });
 
       const isGroupChecked = (group: string) => groups[group].every(k => visibleKeys.includes(k));

@@ -18,6 +18,10 @@ function HomeInner() {
 
   // Handle redirects with useEffect instead of direct redirect
   useEffect(() => {
+    // 获取 dataset_url 参数以在重定向时保留
+    const datasetUrl = searchParams.get('dataset_url');
+    const datasetUrlQuery = datasetUrl ? `?dataset_url=${encodeURIComponent(datasetUrl)}` : '';
+    
     // Redirect to the first episode of the dataset if REPO_ID is defined
     if (process.env.REPO_ID) {
       const episodeN = process.env.EPISODES
@@ -25,7 +29,7 @@ function HomeInner() {
         .map((x) => parseInt(x.trim(), 10))
         .filter((x) => !isNaN(x))[0] ?? 0;
 
-      router.push(`/${process.env.REPO_ID}/episode_${episodeN}`);
+      router.push(`/${process.env.REPO_ID}/episode_${episodeN}${datasetUrlQuery}`);
       return;
     }
     
@@ -43,11 +47,15 @@ function HomeInner() {
       redirectUrl = `/${searchParams.get('dataset')}`;
     }
 
-    if (redirectUrl && searchParams.get('t')) {
-      redirectUrl += `?t=${searchParams.get('t')}`;
-    }
-
     if (redirectUrl) {
+      // 添加时间参数
+      const timeParam = searchParams.get('t');
+      const params = new URLSearchParams();
+      if (timeParam) params.set('t', timeParam);
+      if (datasetUrl) params.set('dataset_url', datasetUrl);
+      const queryString = params.toString();
+      redirectUrl += queryString ? `?${queryString}` : '';
+      
       router.push(redirectUrl);
       return;
     }
@@ -169,7 +177,7 @@ function HomeInner() {
                     inputRef.current.value = ds;
                     inputRef.current.focus();
                   }
-                  router.push(ds);
+                  router.push(`${ds}?dataset_url=https://huggingface.co/datasets`);
                 }}
               >
                 {ds}
@@ -179,7 +187,7 @@ function HomeInner() {
         </div>
 
         <Link
-          href="/explore"
+          href="/explore?dataset_url=https://huggingface.co/datasets"
           className="inline-block px-6 py-3 mt-8 rounded-md bg-sky-500 text-white font-semibold text-lg shadow-lg hover:bg-sky-400 transition-colors"
         >
           Explore Open Datasets

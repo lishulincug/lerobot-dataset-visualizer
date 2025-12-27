@@ -17,6 +17,11 @@ export default function ExploreGrid({
   currentPage,
   totalPages,
 }: ExploreGridProps) {
+  const searchParams = useSearchParams();
+  // 获取 dataset_url 参数以在链接中保留
+  const datasetUrl = searchParams.get("dataset_url");
+  const queryString = datasetUrl ? `?dataset_url=${encodeURIComponent(datasetUrl)}` : '';
+  
   // sync with parent window hf.co/spaces
   useEffect(() => {
     postParentMessageWithParams((params: URLSearchParams) => {
@@ -34,7 +39,7 @@ export default function ExploreGrid({
         {datasets.map((ds, idx) => (
           <Link
             key={ds.id}
-            href={`/${ds.id}`}
+            href={`/${ds.id}${queryString}`}
             className="relative border rounded-lg p-4 bg-white shadow hover:shadow-lg transition overflow-hidden h-48 flex items-end group"
             onMouseEnter={() => {
               const vid = videoRefs.current[idx];
